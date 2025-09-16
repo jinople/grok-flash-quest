@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GROK'S FLASH QUEST: SAVE FLASH</title>
+    <title>GROK'S FLASH QUEST: WALMART RESCUE</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
@@ -13,18 +13,18 @@
         
         <!-- Enhanced HUD -->
         <div id="ui">
-            <div id="hearts">❤️❤️❤️</div>
+            <div id="hearts">⭕⭕⭕</div>
             <div id="score">Score: 0</div>
-            <div id="time">Time: 120s</div>
+            <div id="time">Time: 5:00</div>
             <div id="mud-container">
-                <div class="label">Mud:</div>
+                <div class="label">Stamina:</div>
                 <div id="mud-bar">
                     <div id="mud-fill"></div>
                 </div>
-                <div id="mud-percent">0%</div>
+                <div id="mud-percent">100%</div>
             </div>
             <div id="lasso-cooldown">
-                <div class="label">Lasso:</div>
+                <div class="label">Progress:</div>
                 <div id="lasso-bar">
                     <div id="lasso-fill"></div>
                 </div>
@@ -35,27 +35,28 @@
         <!-- Game Screens -->
         <div id="title-screen" class="screen">
             <div class="title">GROK'S FLASH QUEST</div>
-            <div class="subtitle">SAVE FLASH THE HORSE!</div>
+            <div class="subtitle">WALMART RESCUE MISSION!</div>
             <div class="instructions">
-                🤠 Use WASD/Arrows to move<br>
-                🪢 Press SPACE to lasso (3 hits to save Flash)<br>
-                💰 Collect coins, avoid bandits 🏴‍☠️<br>
-                ⏰ Save Flash before mud reaches 100%!
+                🧑 Use WASD/Arrows to move, Shift to sprint<br>
+                🔍 Press SPACE to interact with items/doors<br>
+                🗝️ Collect 3 items + key, free Flash, escape together<br>
+                👮‍♀️ Avoid guards, hide in clothes racks 👕<br>
+                ⏰ Reach the exit before time runs out!
             </div>
-            <button id="start-btn" class="game-btn">🎮 START QUEST</button>
+            <button id="start-btn" class="game-btn">🎮 START MISSION</button>
         </div>
         
         <div id="victory-screen" class="screen hidden">
-            <div class="title">🎉 QUEST COMPLETE! 🎉</div>
-            <div class="subtitle">Flash is saved!</div>
+            <div class="title">🎉 MISSION COMPLETE! 🎉</div>
+            <div class="subtitle">Flash is safely rescued!</div>
             <div id="final-score">Final Score: 0</div>
             <div id="best-score">Best Score: 0</div>
             <button id="victory-restart-btn" class="game-btn">🔄 PLAY AGAIN</button>
         </div>
         
         <div id="gameover-screen" class="screen hidden">
-            <div class="title">💀 GAME OVER 💀</div>
-            <div id="game-over-reason">Flash wasn't saved in time...</div>
+            <div class="title">💀 MISSION FAILED 💀</div>
+            <div id="game-over-reason">Flash wasn't rescued in time...</div>
             <div id="final-score-go">Final Score: 0</div>
             <div id="best-score-go">Best Score: 0</div>
             <button id="gameover-restart-btn" class="game-btn">🔄 TRY AGAIN</button>
@@ -72,7 +73,7 @@
                 </div>
                 <button class="dpad-btn" id="down-btn">▼</button>
             </div>
-            <button id="lasso-btn" class="action-btn">🪢</button>
+            <button id="lasso-btn" class="action-btn">🔍</button>
         </div>
     </div>
     <script src="script.js"></script>
