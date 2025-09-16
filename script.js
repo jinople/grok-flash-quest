@@ -4,7 +4,7 @@ ctx.imageSmoothingEnabled = false; // Crisp 8-bit pixels
 
 // Game state
 let gameStarted = false;
-let player = { x: 50, y: 500, width: 16, height: 16, speed: 5, frame: 0 };
+let player = { x: 50, y: 500, width: 16, height: 16, speed: 5, frame: 0, invincible: 0 };
 let flash = { x: 600, y: 500, width: 16, height: 16, saved: false, frame: 0, lassoHits: 0 };
 let mudMeter = 25;
 let timeLeft = 120;
@@ -16,13 +16,13 @@ let bandits = [{x: 300, y: 500, width: 16, height: 16, frame: 0}];
 let lassoCooldown = 0; // Debounce lasso
 let sparkEffect = null; // Visual feedback for Spacebar
 
-// Sprites
+// Sprites using emojis
 const sprites = {
-    player: [[0, 255, 0], [50, 255, 50]], // Green Grok knight
-    flash: [[139, 69, 19], [160, 82, 45]], // Brown horse
-    coin: [[255, 255, 0], [255, 215, 0]], // Gold coin spin
-    bandit: [[255, 0, 0], [200, 0, 0]], // Red bandit
-    spark: [[255, 255, 255], [200, 200, 200]] // Lasso spark
+    player: '🤠', // Cowboy for Grok
+    flash: '🐴', // Horse for Flash
+    coin: '🪙', // Coin
+    bandit: '🦹', // Villain for bandit
+    spark: '✨' // Sparkle for lasso effect
 };
 
 // Ensure canvas focus
@@ -54,9 +54,9 @@ function update() {
     player.x = Math.max(0, Math.min(800 - player.width, player.x));
     player.y = Math.max(0, Math.min(600 - player.height, player.y));
 
-    // Lasso (Space) with cooldown and hit counter
+    // Lasso (Space) with cooldown and hit counter - improved hit detection range
     if (keys['space'] && lassoCooldown <= 0 && !flash.saved) {
-        if (Math.abs(player.x - flash.x) < 50 && Math.abs(player.y - flash.y) < 50) {
+        if (Math.abs(player.x - flash.x) < 80 && Math.abs(player.y - flash.y) < 80) { // Increased from 50 to 80
             flash.lassoHits++;
             lassoCooldown = 30; // 0.5s cooldown at ~60fps
             sparkEffect = {x: flash.x, y: flash.y, frame: 0, duration: 10}; // Spark on hit
@@ -69,15 +69,15 @@ function update() {
     }
     if (lassoCooldown > 0) lassoCooldown--;
 
-    // Mud and time
-    if (!flash.saved) mudMeter += 0.1;
+    // Mud and time - further reduced mud meter progression to make game more winnable
+    if (!flash.saved) mudMeter += 0.01; // Reduced from 0.02 to 0.01
     timeLeft -= 1/60;
     if (mudMeter >= 100 || timeLeft <= 0) {
-        alert('Game Over! Mud wins. Retry?');
+        alert('Game Over! Flash is stuck in the mud. Try again!');
         location.reload();
     }
     if (flash.saved) {
-        alert('Quest Complete! Flash saved. Score: ' + score);
+        alert(`🎉 Quest Complete! Flash is free! 🎉\nFinal Score: ${score}\nTime Remaining: ${Math.floor(timeLeft)}s`);
         location.reload();
     }
 
@@ -90,17 +90,22 @@ function update() {
         }
     });
 
-    // Bandit collision
-    bandits.forEach(b => {
-        if (Math.abs(player.x - b.x) < 16 && Math.abs(player.y - b.y) < 16) {
-            hearts--;
-            sparkEffect = {x: player.x, y: player.y, frame: 0, duration: 10}; // Spark on hit
-            if (hearts <= 0) {
-                alert('Game Over! Bandits win. Retry?');
-                location.reload();
+    // Bandit collision with invincibility frames
+    if (player.invincible > 0) {
+        player.invincible--;
+    } else {
+        bandits.forEach(b => {
+            if (Math.abs(player.x - b.x) < 16 && Math.abs(player.y - b.y) < 16) {
+                hearts--;
+                player.invincible = 60; // 1 second of invincibility at 60fps
+                sparkEffect = {x: player.x, y: player.y, frame: 0, duration: 10}; // Spark on hit
+                if (hearts <= 0) {
+                    alert('💀 Game Over! The bandits got you! 💀\nTry again!');
+                    location.reload();
+                }
             }
-        }
-    });
+        });
+    }
 
     // Animation frames
     player.frame = (player.frame + 0.1) % 2;
@@ -127,30 +132,39 @@ function draw() {
         ctx.fillRect(flash.x - 10, flash.y, 36, 36);
     }
 
-    // Player
-    ctx.fillStyle = `rgb(${sprites.player[Math.floor(player.frame)].join(',')})`;
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    // Set font for emojis
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Player (with invincibility flashing)
+    if (player.invincible === 0 || Math.floor(player.invincible / 5) % 2 === 0) {
+        ctx.fillText(sprites.player, player.x + player.width/2, player.y + player.height/2);
+    }
 
     // Flash
-    ctx.fillStyle = `rgb(${sprites.flash[Math.floor(flash.frame)].join(',')})`;
-    ctx.fillRect(flash.x, flash.y, flash.width, flash.height);
+    ctx.fillText(sprites.flash, flash.x + flash.width/2, flash.y + flash.height/2);
     if (flash.saved) {
         ctx.fillStyle = '#0f0'; ctx.font = '10px Press Start 2P';
         ctx.fillText('Saved!', flash.x, flash.y - 10);
+        ctx.font = '16px Arial'; // Reset font
+    } else if (flash.lassoHits > 0) {
+        // Show lasso progress
+        ctx.fillStyle = '#ff0'; ctx.font = '8px Press Start 2P';
+        ctx.fillText(`${flash.lassoHits}/3`, flash.x + flash.width/2, flash.y - 15);
+        ctx.font = '16px Arial'; // Reset font
     }
 
     // Coins
     coins.forEach(coin => {
         if (!coin.collected) {
-            ctx.fillStyle = `rgb(${sprites.coin[Math.floor((coin.frame = (coin.frame || 0) + 0.2) % 2)].join(',')})`;
-            ctx.fillRect(coin.x, coin.y, 8, 8);
+            ctx.fillText(sprites.coin, coin.x + 4, coin.y + 4);
         }
     });
 
     // Bandits
     bandits.forEach(b => {
-        ctx.fillStyle = `rgb(${sprites.bandit[Math.floor(b.frame)].join(',')})`;
-        ctx.fillRect(b.x, b.y, b.width, b.height);
+        ctx.fillText(sprites.bandit, b.x + b.width/2, b.y + b.height/2);
     });
 
     // Lasso effect
@@ -161,8 +175,7 @@ function draw() {
 
     // Spark effect
     if (sparkEffect && sparkEffect.frame < sparkEffect.duration) {
-        ctx.fillStyle = `rgb(${sprites.spark[Math.floor(sparkEffect.frame % 2)].join(',')})`;
-        ctx.fillRect(sparkEffect.x, sparkEffect.y, 8, 8);
+        ctx.fillText(sprites.spark, sparkEffect.x + 4, sparkEffect.y + 4);
     }
 }
 
