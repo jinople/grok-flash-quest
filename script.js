@@ -7,18 +7,28 @@
 const CONFIG = {
     CANVAS_WIDTH: 800,
     CANVAS_HEIGHT: 600,
-    PLAYER_SPEED: 4,
-    BANDIT_SPEED: 1.5,
-    GAME_TIMER: 120,
-    LASSO_RANGE: 80,
-    LASSO_COOLDOWN: 60, // frames
-    FLASH_HITS_NEEDED: 3,
-    MUD_INCREASE_RATE: 0.02,
-    MUD_DECREASE_ON_HIT: 15,
+    TILE_SIZE: 25,
+    MAP_WIDTH: 32,
+    MAP_HEIGHT: 24,
+    PLAYER_SPEED: 2.5,
+    FLASH_SPEED: 2,
+    PATROL_SPEED: 1.5,
+    SPRINT_MULTIPLIER: 1.8,
+    STAMINA_MAX: 100,
+    STAMINA_DRAIN_RATE: 2,
+    STAMINA_REGEN_RATE: 1,
+    GAME_TIMER: 300, // 5 minutes max
+    PICKUP_DURATION: 40, // frames (0.67s at 60fps)
+    UNLOCK_DURATION: 72, // frames (1.2s at 60fps)
+    CALM_FLASH_DURATION: 48, // frames (0.8s at 60fps)
+    LOS_RANGE: 120,
+    LOS_ANGLE: 60, // degrees
+    ALERT_DECREASE_RATE: 0.5,
+    MAX_STRIKES: 3,
     INVINCIBILITY_FRAMES: 120,
     SCREEN_SHAKE_DURATION: 30,
     PARTICLE_LIFETIME: 60,
-    EMOJI_SIZE: 24
+    EMOJI_SIZE: 20
 };
 
 // Game States
@@ -27,6 +37,98 @@ const GAME_STATES = {
     PLAYING: 'playing',
     VICTORY: 'victory',
     GAME_OVER: 'game_over'
+};
+
+// Tile Types
+const TILE_TYPES = {
+    FLOOR: 0,
+    WALL: 1,
+    CLOTHES_RACK: 2,
+    FITTING_ROOM: 3,
+    CUSTOMER_SERVICE: 4,
+    STOCKROOM_DOOR: 5,
+    EXIT: 6,
+    PLAYER_SPAWN: 7,
+    FLASH_PEN: 8
+};
+
+// Item Types  
+const ITEM_TYPES = {
+    HALTER: 'halter',
+    LEAD_ROPE: 'lead_rope', 
+    SADDLE_PAD: 'saddle_pad',
+    GATE_KEY: 'gate_key'
+};
+
+// NPC Types
+const NPC_TYPES = {
+    SECURITY: 'security',
+    ASSOCIATE1: 'associate1', 
+    ASSOCIATE2: 'associate2'
+};
+
+// ================================
+// TILE MAP DATA
+// ================================
+
+// Walmart Clothes Department Map (32x24)
+const WALMART_MAP = [
+    // Row 0-3: Top wall and entrance area
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    
+    // Row 4-7: Clothes racks area  
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,2,2,0,0,0,1],
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,2,2,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    
+    // Row 8-11: Middle area with fitting rooms
+    [1,0,2,2,0,0,2,2,0,0,0,0,0,0,3,3,3,3,0,0,2,2,0,0,2,2,0,0,2,2,0,1],
+    [1,0,2,2,0,0,2,2,0,0,0,0,0,0,3,3,3,3,0,0,2,2,0,0,2,2,0,0,2,2,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    
+    // Row 12-15: Customer service and more racks
+    [1,0,2,2,0,0,2,2,0,0,0,0,4,4,0,0,0,0,0,0,2,2,0,0,2,2,0,0,2,2,0,1],
+    [1,0,2,2,0,0,2,2,0,0,0,0,4,4,0,0,0,0,0,0,2,2,0,0,2,2,0,0,2,2,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    
+    // Row 16-19: Lower area with stockroom
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,1,5,5,1,0,1],
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,1,8,8,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,8,8,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,1],
+    
+    // Row 20-23: Bottom area and exit
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,0,0,0,0,0,1],
+    [1,0,2,2,0,0,2,2,0,0,2,2,0,0,0,0,0,0,2,2,0,0,2,2,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// Item spawn locations
+const ITEM_SPAWNS = {
+    [ITEM_TYPES.HALTER]: { x: 4, y: 4 }, // Near clothes racks
+    [ITEM_TYPES.LEAD_ROPE]: { x: 15, y: 9 }, // Near fitting rooms
+    [ITEM_TYPES.SADDLE_PAD]: { x: 26, y: 20 }, // Bottom area
+    [ITEM_TYPES.GATE_KEY]: { x: 13, y: 12 } // Customer service (could be randomized)
+};
+
+// NPC patrol routes
+const PATROL_ROUTES = {
+    [NPC_TYPES.SECURITY]: [
+        { x: 6, y: 6 }, { x: 15, y: 6 }, { x: 15, y: 15 }, { x: 6, y: 15 }
+    ],
+    [NPC_TYPES.ASSOCIATE1]: [
+        { x: 20, y: 8 }, { x: 25, y: 8 }, { x: 25, y: 12 }, { x: 20, y: 12 }
+    ],
+    [NPC_TYPES.ASSOCIATE2]: [
+        { x: 10, y: 18 }, { x: 18, y: 18 }, { x: 18, y: 21 }, { x: 10, y: 21 }
+    ]
 };
 
 // ================================
@@ -165,22 +267,71 @@ class Entity {
 
 class Player extends Entity {
     constructor(x, y) {
-        super(x, y, '🤠');
+        super(x, y, '🧑');
         this.speed = CONFIG.PLAYER_SPEED;
         this.invincibilityFrames = 0;
         this.flashOpacity = 1;
+        this.stamina = CONFIG.STAMINA_MAX;
+        this.sprinting = false;
+        this.hidden = false;
+        this.tileX = Math.floor(x / CONFIG.TILE_SIZE);
+        this.tileY = Math.floor(y / CONFIG.TILE_SIZE);
+        this.collectedItems = new Set();
+        this.hasFlash = false;
+        this.interactionTimer = 0;
+        this.interactionTarget = null;
     }
     
-    update(input) {
-        // Movement
-        if (input.left) this.position.x -= this.speed;
-        if (input.right) this.position.x += this.speed;
-        if (input.up) this.position.y -= this.speed;
-        if (input.down) this.position.y += this.speed;
+    update(input, gameMap) {
+        const prevX = this.position.x;
+        const prevY = this.position.y;
         
-        // Boundary checking
-        this.position.x = Math.max(this.size/2, Math.min(CONFIG.CANVAS_WIDTH - this.size/2, this.position.x));
-        this.position.y = Math.max(this.size/2, Math.min(CONFIG.CANVAS_HEIGHT - this.size/2, this.position.y));
+        // Handle sprinting
+        this.sprinting = input.sprint && this.stamina > 0;
+        const currentSpeed = this.sprinting ? this.speed * CONFIG.SPRINT_MULTIPLIER : this.speed;
+        
+        // Update stamina
+        if (this.sprinting) {
+            this.stamina = Math.max(0, this.stamina - CONFIG.STAMINA_DRAIN_RATE);
+        } else {
+            this.stamina = Math.min(CONFIG.STAMINA_MAX, this.stamina + CONFIG.STAMINA_REGEN_RATE);
+        }
+        
+        // Movement with collision detection
+        let newX = this.position.x;
+        let newY = this.position.y;
+        
+        if (input.left) newX -= currentSpeed;
+        if (input.right) newX += currentSpeed;
+        if (input.up) newY -= currentSpeed;
+        if (input.down) newY += currentSpeed;
+        
+        // Check tile collision
+        if (this.canMoveTo(newX, this.position.y, gameMap)) {
+            this.position.x = newX;
+        }
+        if (this.canMoveTo(this.position.x, newY, gameMap)) {
+            this.position.y = newY;
+        }
+        
+        // Update tile position
+        this.tileX = Math.floor(this.position.x / CONFIG.TILE_SIZE);
+        this.tileY = Math.floor(this.position.y / CONFIG.TILE_SIZE);
+        
+        // Check if hidden in clothes rack
+        const currentTile = this.getCurrentTile(gameMap);
+        this.hidden = (currentTile === TILE_TYPES.CLOTHES_RACK);
+        if (this.hidden && this.sprinting) {
+            this.hidden = false; // Sprinting in racks reduces stealth
+        }
+        
+        // Handle interaction timer
+        if (this.interactionTimer > 0) {
+            this.interactionTimer--;
+            if (this.interactionTimer === 0) {
+                this.completeInteraction();
+            }
+        }
         
         // Update invincibility
         if (this.invincibilityFrames > 0) {
@@ -189,6 +340,48 @@ class Player extends Entity {
         } else {
             this.flashOpacity = 1;
         }
+        
+        // Boundary checking
+        this.position.x = Math.max(CONFIG.TILE_SIZE/2, Math.min(CONFIG.CANVAS_WIDTH - CONFIG.TILE_SIZE/2, this.position.x));
+        this.position.y = Math.max(CONFIG.TILE_SIZE/2, Math.min(CONFIG.CANVAS_HEIGHT - CONFIG.TILE_SIZE/2, this.position.y));
+    }
+    
+    canMoveTo(x, y, gameMap) {
+        const tileX = Math.floor(x / CONFIG.TILE_SIZE);
+        const tileY = Math.floor(y / CONFIG.TILE_SIZE);
+        
+        if (tileX < 0 || tileX >= CONFIG.MAP_WIDTH || tileY < 0 || tileY >= CONFIG.MAP_HEIGHT) {
+            return false;
+        }
+        
+        const tile = gameMap[tileY][tileX];
+        return tile !== TILE_TYPES.WALL && tile !== TILE_TYPES.FITTING_ROOM;
+    }
+    
+    getCurrentTile(gameMap) {
+        if (this.tileY < 0 || this.tileY >= CONFIG.MAP_HEIGHT || 
+            this.tileX < 0 || this.tileX >= CONFIG.MAP_WIDTH) {
+            return TILE_TYPES.WALL;
+        }
+        return gameMap[this.tileY][this.tileX];
+    }
+    
+    startInteraction(target, duration) {
+        this.interactionTarget = target;
+        this.interactionTimer = duration;
+    }
+    
+    completeInteraction() {
+        if (this.interactionTarget) {
+            this.interactionTarget.onInteractionComplete();
+            this.interactionTarget = null;
+        }
+    }
+    
+    getInteractionProgress() {
+        if (this.interactionTimer <= 0) return 1;
+        const totalDuration = this.interactionTarget ? this.interactionTarget.interactionDuration : 1;
+        return 1 - (this.interactionTimer / totalDuration);
     }
     
     takeDamage() {
@@ -202,117 +395,120 @@ class Player extends Entity {
     render(ctx, time = 0) {
         ctx.save();
         ctx.globalAlpha = this.flashOpacity;
+        
+        // Add stealth visual effect
+        if (this.hidden) {
+            ctx.globalAlpha *= 0.6;
+        }
+        
         super.render(ctx, time);
         ctx.restore();
+        
+        // Render interaction progress bar
+        if (this.interactionTimer > 0) {
+            const progress = this.getInteractionProgress();
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.position.x - 20, this.position.y - 35, 40, 6);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(this.position.x - 20, this.position.y - 35, 40 * progress, 6);
+            ctx.restore();
+        }
     }
 }
 
-class Horse extends Entity {
+class Flash extends Entity {
     constructor(x, y) {
         super(x, y, '🐴');
-        this.saved = false;
-        this.lassoHits = 0;
-        this.savedAnimation = 0;
+        this.freed = false;
+        this.following = false;
+        this.targetPosition = new Vector2(x, y);
+        this.followDelay = 30; // frames of delay
+        this.followTimer = 0;
+        this.calmed = false;
+        this.needsCalming = true;
+        this.speed = CONFIG.FLASH_SPEED;
     }
     
-    update() {
-        if (this.saved) {
-            this.savedAnimation += 0.1;
-            this.bobAmount = 4 + Math.sin(this.savedAnimation) * 2;
+    update(playerPos) {
+        if (this.following) {
+            this.followTimer--;
+            if (this.followTimer <= 0) {
+                // Move towards player with delay
+                const dx = playerPos.x - this.position.x;
+                const dy = playerPos.y - this.position.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > CONFIG.TILE_SIZE * 2) { // Follow if too far
+                    this.position.x += (dx / dist) * this.speed;
+                    this.position.y += (dy / dist) * this.speed;
+                }
+                this.followTimer = this.followDelay;
+            }
         }
     }
     
-    onLassoHit() {
-        this.lassoHits++;
-        if (this.lassoHits >= CONFIG.FLASH_HITS_NEEDED) {
-            this.saved = true;
-            this.emoji = '🐴✨'; // Add sparkles when saved
-        }
+    free() {
+        this.freed = true;
+        this.emoji = '🐴✨';
+    }
+    
+    startFollowing() {
+        this.following = true;
+        this.needsCalming = false;
+        this.calmed = true;
     }
     
     render(ctx, time = 0) {
         super.render(ctx, time);
         
-        if (this.saved) {
-            // Render "SAVED!" text
+        if (this.freed && !this.following) {
+            // Show "Press E to calm Flash" message
             ctx.save();
-            ctx.font = '12px "Press Start 2P", monospace';
-            ctx.fillStyle = '#0f0';
+            ctx.font = '10px "Press Start 2P", monospace';
+            ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('SAVED!', this.position.x, this.position.y - 40);
+            ctx.fillText('Press E to calm Flash', this.position.x, this.position.y - 40);
             ctx.restore();
-        } else {
-            // Show progress
-            const progress = this.lassoHits / CONFIG.FLASH_HITS_NEEDED;
+        }
+        
+        if (!this.freed) {
+            // Show locked gate
             ctx.save();
-            ctx.strokeStyle = '#ff0';
+            ctx.strokeStyle = '#888';
             ctx.lineWidth = 3;
-            ctx.strokeRect(this.position.x - 20, this.position.y - 35, 40, 8);
-            ctx.fillStyle = '#ff0';
-            ctx.fillRect(this.position.x - 20, this.position.y - 35, 40 * progress, 8);
+            ctx.strokeRect(this.position.x - 25, this.position.y - 30, 50, 20);
+            ctx.fillStyle = '#888';
+            ctx.fillText('🔒', this.position.x, this.position.y - 40);
             ctx.restore();
         }
     }
 }
 
-class Bandit extends Entity {
-    constructor(x, y) {
-        super(x, y, '🏴‍☠️');
-        this.speed = CONFIG.BANDIT_SPEED;
-        this.direction = new Vector2(Math.random() - 0.5, Math.random() - 0.5);
-        this.patrolTime = 0;
-        this.chaseRange = 150;
-    }
-    
-    update(playerPos) {
-        const distToPlayer = this.position.distance(playerPos);
-        
-        if (distToPlayer < this.chaseRange) {
-            // Chase player
-            const dx = playerPos.x - this.position.x;
-            const dy = playerPos.y - this.position.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 0) {
-                this.position.x += (dx / dist) * this.speed;
-                this.position.y += (dy / dist) * this.speed;
-            }
-        } else {
-            // Patrol behavior
-            this.patrolTime++;
-            if (this.patrolTime > 120) {
-                this.direction.x = (Math.random() - 0.5) * 2;
-                this.direction.y = (Math.random() - 0.5) * 2;
-                this.patrolTime = 0;
-            }
-            
-            this.position.x += this.direction.x * this.speed * 0.5;
-            this.position.y += this.direction.y * this.speed * 0.5;
-        }
-        
-        // Boundary checking
-        if (this.position.x < this.size/2 || this.position.x > CONFIG.CANVAS_WIDTH - this.size/2) {
-            this.direction.x *= -1;
-        }
-        if (this.position.y < this.size/2 || this.position.y > CONFIG.CANVAS_HEIGHT - this.size/2) {
-            this.direction.y *= -1;
-        }
-        
-        this.position.x = Math.max(this.size/2, Math.min(CONFIG.CANVAS_WIDTH - this.size/2, this.position.x));
-        this.position.y = Math.max(this.size/2, Math.min(CONFIG.CANVAS_HEIGHT - this.size/2, this.position.y));
-    }
-}
-
-class Coin extends Entity {
-    constructor(x, y) {
-        super(x, y, '💰', 20);
+class CollectibleItem extends Entity {
+    constructor(x, y, type) {
+        const emojis = {
+            [ITEM_TYPES.HALTER]: '🎯',
+            [ITEM_TYPES.LEAD_ROPE]: '🪢', 
+            [ITEM_TYPES.SADDLE_PAD]: '🛡️',
+            [ITEM_TYPES.GATE_KEY]: '🗝️'
+        };
+        super(x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, emojis[type], 18);
+        this.type = type;
         this.collected = false;
+        this.interactionDuration = CONFIG.PICKUP_DURATION;
         this.spinSpeed = 0.1;
         this.rotation = 0;
     }
     
     update() {
         this.rotation += this.spinSpeed;
+    }
+    
+    onInteractionComplete() {
+        this.collected = true;
     }
     
     render(ctx, time = 0) {
@@ -327,9 +523,142 @@ class Coin extends Entity {
         ctx.fillText(this.emoji, 0, 0);
         ctx.restore();
     }
+}
+
+class GateKey extends CollectibleItem {
+    constructor(x, y) {
+        super(x, y, ITEM_TYPES.GATE_KEY);
+        this.interactionDuration = CONFIG.UNLOCK_DURATION;
+    }
+}
+
+class PatrolNPC extends Entity {
+    constructor(x, y, type) {
+        const emojis = {
+            [NPC_TYPES.SECURITY]: '👮',
+            [NPC_TYPES.ASSOCIATE1]: '👩‍💼',
+            [NPC_TYPES.ASSOCIATE2]: '👨‍💼'
+        };
+        super(x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, emojis[type]);
+        this.type = type;
+        this.route = PATROL_ROUTES[type];
+        this.routeIndex = 0;
+        this.speed = CONFIG.PATROL_SPEED;
+        this.direction = 0; // 0=right, 1=down, 2=left, 3=up
+        this.patrolTimer = 0;
+        this.waitTime = 60; // frames to wait at each point
+        this.losAngle = CONFIG.LOS_ANGLE;
+        this.losRange = CONFIG.LOS_RANGE;
+        this.alertLevel = 0;
+        this.maxAlert = 100;
+    }
     
-    collect() {
-        this.collected = true;
+    update(gameMap) {
+        if (this.route.length === 0) return;
+        
+        const target = this.route[this.routeIndex];
+        const targetPixelX = target.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2;
+        const targetPixelY = target.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2;
+        
+        const dx = targetPixelX - this.position.x;
+        const dy = targetPixelY - this.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < CONFIG.TILE_SIZE / 4) {
+            // Reached waypoint, wait then move to next
+            this.patrolTimer++;
+            if (this.patrolTimer >= this.waitTime) {
+                this.routeIndex = (this.routeIndex + 1) % this.route.length;
+                this.patrolTimer = 0;
+            }
+        } else {
+            // Move towards target
+            this.position.x += (dx / dist) * this.speed;
+            this.position.y += (dy / dist) * this.speed;
+            
+            // Update direction for LOS
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.direction = dx > 0 ? 0 : 2; // right or left
+            } else {
+                this.direction = dy > 0 ? 1 : 3; // down or up
+            }
+        }
+        
+        // Decrease alert level over time
+        this.alertLevel = Math.max(0, this.alertLevel - CONFIG.ALERT_DECREASE_RATE);
+    }
+    
+    canSeePlayer(player, gameMap) {
+        if (player.hidden) return false;
+        
+        const dx = player.position.x - this.position.x;
+        const dy = player.position.y - this.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > this.losRange) return false;
+        
+        // Check if player is in FOV cone
+        const angleToPlayer = Math.atan2(dy, dx) * 180 / Math.PI;
+        const directionAngle = this.direction * 90; // Convert direction to angle
+        let angleDiff = Math.abs(angleToPlayer - directionAngle);
+        if (angleDiff > 180) angleDiff = 360 - angleDiff;
+        
+        if (angleDiff > this.losAngle / 2) return false;
+        
+        // Raycast to check for obstacles
+        return this.hasLineOfSight(player.position, gameMap);
+    }
+    
+    hasLineOfSight(targetPos, gameMap) {
+        const steps = Math.floor(this.position.distance(targetPos) / (CONFIG.TILE_SIZE / 4));
+        const dx = (targetPos.x - this.position.x) / steps;
+        const dy = (targetPos.y - this.position.y) / steps;
+        
+        for (let i = 1; i < steps; i++) {
+            const checkX = this.position.x + dx * i;
+            const checkY = this.position.y + dy * i;
+            const tileX = Math.floor(checkX / CONFIG.TILE_SIZE);
+            const tileY = Math.floor(checkY / CONFIG.TILE_SIZE);
+            
+            if (tileX < 0 || tileX >= CONFIG.MAP_WIDTH || 
+                tileY < 0 || tileY >= CONFIG.MAP_HEIGHT) continue;
+                
+            const tile = gameMap[tileY][tileX];
+            if (tile === TILE_TYPES.WALL || tile === TILE_TYPES.FITTING_ROOM) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    render(ctx, time = 0) {
+        super.render(ctx, time);
+        
+        // Render LOS cone
+        ctx.save();
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = this.alertLevel > 50 ? '#ff0000' : '#ffff00';
+        
+        const directionAngle = this.direction * 90 * Math.PI / 180;
+        const halfAngle = this.losAngle * Math.PI / 360;
+        
+        ctx.beginPath();
+        ctx.moveTo(this.position.x, this.position.y);
+        ctx.arc(this.position.x, this.position.y, this.losRange, 
+                directionAngle - halfAngle, directionAngle + halfAngle);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        
+        // Show alert level if elevated
+        if (this.alertLevel > 25) {
+            ctx.save();
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', this.position.x, this.position.y - 30);
+            ctx.restore();
+        }
     }
 }
 
@@ -392,7 +721,9 @@ class InputManager {
             right: this.keys['arrowright'] || this.keys['keyd'] || this.touch.right,
             up: this.keys['arrowup'] || this.keys['keyw'] || this.touch.up,
             down: this.keys['arrowdown'] || this.keys['keys'] || this.touch.down,
-            lasso: this.keys['space'] || this.touch.lasso,
+            interact: this.keys['space'] || this.touch.lasso,
+            sprint: this.keys['shiftleft'] || this.keys['shiftright'],
+            whistle: this.keys['keye'],
             start: this.keys['space'] || this.keys['enter']
         };
     }
@@ -535,10 +866,16 @@ class Game {
         this.particles = new ParticleSystem();
         
         this.score = 0;
-        this.hearts = 3;
         this.timeLeft = CONFIG.GAME_TIMER;
-        this.mudPercent = 0;
-        this.lassoCooldown = 0;
+        this.strikes = 0;
+        this.objectives = {
+            [ITEM_TYPES.HALTER]: false,
+            [ITEM_TYPES.LEAD_ROPE]: false, 
+            [ITEM_TYPES.SADDLE_PAD]: false,
+            [ITEM_TYPES.GATE_KEY]: false,
+            freeFlash: false,
+            reachExit: false
+        };
         
         this.bestScore = parseInt(localStorage.getItem('grok_best_score')) || 0;
         
@@ -548,19 +885,45 @@ class Game {
     }
     
     initializeEntities() {
-        this.player = new Player(50, CONFIG.CANVAS_HEIGHT - 100);
-        this.horse = new Horse(CONFIG.CANVAS_WIDTH - 100, CONFIG.CANVAS_HEIGHT - 100);
-        this.bandits = [
-            new Bandit(300, 300),
-            new Bandit(500, 200)
+        // Find player spawn
+        const spawnTile = this.findTileType(TILE_TYPES.PLAYER_SPAWN);
+        this.player = new Player(
+            spawnTile.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2,
+            spawnTile.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2
+        );
+        
+        // Find Flash pen
+        const flashTile = this.findTileType(TILE_TYPES.FLASH_PEN);
+        this.flash = new Flash(
+            flashTile.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2,
+            flashTile.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2
+        );
+        
+        // Create collectible items
+        this.items = [
+            new CollectibleItem(ITEM_SPAWNS[ITEM_TYPES.HALTER].x, ITEM_SPAWNS[ITEM_TYPES.HALTER].y, ITEM_TYPES.HALTER),
+            new CollectibleItem(ITEM_SPAWNS[ITEM_TYPES.LEAD_ROPE].x, ITEM_SPAWNS[ITEM_TYPES.LEAD_ROPE].y, ITEM_TYPES.LEAD_ROPE),
+            new CollectibleItem(ITEM_SPAWNS[ITEM_TYPES.SADDLE_PAD].x, ITEM_SPAWNS[ITEM_TYPES.SADDLE_PAD].y, ITEM_TYPES.SADDLE_PAD),
+            new GateKey(ITEM_SPAWNS[ITEM_TYPES.GATE_KEY].x, ITEM_SPAWNS[ITEM_TYPES.GATE_KEY].y)
         ];
-        this.coins = [
-            new Coin(200, 400),
-            new Coin(400, 300),
-            new Coin(600, 450),
-            new Coin(150, 200),
-            new Coin(650, 250)
+        
+        // Create patrol NPCs
+        this.npcs = [
+            new PatrolNPC(PATROL_ROUTES[NPC_TYPES.SECURITY][0].x, PATROL_ROUTES[NPC_TYPES.SECURITY][0].y, NPC_TYPES.SECURITY),
+            new PatrolNPC(PATROL_ROUTES[NPC_TYPES.ASSOCIATE1][0].x, PATROL_ROUTES[NPC_TYPES.ASSOCIATE1][0].y, NPC_TYPES.ASSOCIATE1),
+            new PatrolNPC(PATROL_ROUTES[NPC_TYPES.ASSOCIATE2][0].x, PATROL_ROUTES[NPC_TYPES.ASSOCIATE2][0].y, NPC_TYPES.ASSOCIATE2)
         ];
+    }
+    
+    findTileType(tileType) {
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                if (WALMART_MAP[y][x] === tileType) {
+                    return { x, y };
+                }
+            }
+        }
+        return { x: 1, y: 1 }; // fallback
     }
     
     setupUI() {
@@ -597,11 +960,18 @@ class Game {
     
     resetGame() {
         this.score = 0;
-        this.hearts = 3;
         this.timeLeft = CONFIG.GAME_TIMER;
-        this.mudPercent = 0;
-        this.lassoCooldown = 0;
+        this.strikes = 0;
         this.gameTime = 0;
+        
+        this.objectives = {
+            [ITEM_TYPES.HALTER]: false,
+            [ITEM_TYPES.LEAD_ROPE]: false, 
+            [ITEM_TYPES.SADDLE_PAD]: false,
+            [ITEM_TYPES.GATE_KEY]: false,
+            freeFlash: false,
+            reachExit: false
+        };
         
         this.initializeEntities();
         this.particles = new ParticleSystem();
@@ -642,64 +1012,24 @@ class Game {
         const input = this.input.getInput();
         
         // Update player
-        this.player.update(input);
+        this.player.update(input, WALMART_MAP);
         
-        // Update horse
-        this.horse.update();
+        // Update Flash
+        this.flash.update(this.player.position);
         
-        // Update bandits
-        this.bandits.forEach(bandit => {
-            bandit.update(this.player.position);
+        // Update NPCs
+        this.npcs.forEach(npc => {
+            npc.update(WALMART_MAP);
         });
         
-        // Update coins
-        this.coins.forEach(coin => coin.update());
+        // Update items
+        this.items.forEach(item => item.update());
         
-        // Lasso mechanics
-        if (this.lassoCooldown > 0) this.lassoCooldown--;
+        // Handle interactions
+        this.handleInteractions(input);
         
-        if (input.lasso && this.lassoCooldown <= 0 && !this.horse.saved) {
-            const distance = this.player.position.distance(this.horse.position);
-            if (distance < CONFIG.LASSO_RANGE) {
-                this.horse.onLassoHit();
-                this.lassoCooldown = CONFIG.LASSO_COOLDOWN;
-                this.mudPercent = Math.max(0, this.mudPercent - CONFIG.MUD_DECREASE_ON_HIT);
-                this.particles.emit(this.horse.position.x, this.horse.position.y, '✨', 8);
-                this.sound.playLasso();
-                
-                if (this.horse.saved) {
-                    this.score += 1000;
-                }
-            }
-        }
-        
-        // Collision detection - coins
-        this.coins.forEach(coin => {
-            if (!coin.collected && this.player.getBounds().intersects(coin.getBounds())) {
-                coin.collect();
-                this.score += 100;
-                this.particles.emit(coin.position.x, coin.position.y, '💫', 5);
-                this.sound.playCoin();
-            }
-        });
-        
-        // Collision detection - bandits
-        this.bandits.forEach(bandit => {
-            if (this.player.getBounds().intersects(bandit.getBounds())) {
-                if (this.player.takeDamage()) {
-                    this.hearts--;
-                    this.effects.addScreenShake();
-                    this.effects.addRedFlash();
-                    this.particles.emit(this.player.position.x, this.player.position.y, '💥', 6);
-                    this.sound.playHit();
-                }
-            }
-        });
-        
-        // Update mud meter (only if horse not saved)
-        if (!this.horse.saved) {
-            this.mudPercent += CONFIG.MUD_INCREASE_RATE;
-        }
+        // Check NPC detection
+        this.checkDetection();
         
         // Update timer
         this.timeLeft -= deltaTime / 1000;
@@ -715,16 +1045,119 @@ class Game {
         this.updateUI();
     }
     
+    handleInteractions(input) {
+        if (!input.interact) return;
+        if (this.player.interactionTimer > 0) return; // Already interacting
+        
+        const playerTileX = this.player.tileX;
+        const playerTileY = this.player.tileY;
+        
+        // Check for nearby items
+        this.items.forEach(item => {
+            if (item.collected) return;
+            const dist = this.player.position.distance(item.position);
+            if (dist < CONFIG.TILE_SIZE) {
+                this.player.startInteraction(item, item.interactionDuration);
+                item.onInteractionComplete = () => {
+                    item.collected = true;
+                    this.objectives[item.type] = true;
+                    this.player.collectedItems.add(item.type);
+                    this.score += 200;
+                    this.particles.emit(item.position.x, item.position.y, '✨', 8);
+                    this.sound.playCoin();
+                };
+            }
+        });
+        
+        // Check Flash interaction
+        if (!this.flash.freed && this.player.collectedItems.has(ITEM_TYPES.GATE_KEY)) {
+            const dist = this.player.position.distance(this.flash.position);
+            if (dist < CONFIG.TILE_SIZE * 1.5) {
+                this.player.startInteraction({ 
+                    interactionDuration: CONFIG.UNLOCK_DURATION,
+                    onInteractionComplete: () => {
+                        this.flash.free();
+                        this.objectives.freeFlash = true;
+                        this.score += 500;
+                        this.particles.emit(this.flash.position.x, this.flash.position.y, '🔓', 10);
+                        this.sound.playVictory();
+                    }
+                }, CONFIG.UNLOCK_DURATION);
+            }
+        }
+        
+        // Check Flash calming
+        if (this.flash.freed && !this.flash.following && input.whistle) {
+            const dist = this.player.position.distance(this.flash.position);
+            if (dist < CONFIG.TILE_SIZE * 2) {
+                this.player.startInteraction({
+                    interactionDuration: CONFIG.CALM_FLASH_DURATION,
+                    onInteractionComplete: () => {
+                        this.flash.startFollowing();
+                        this.score += 300;
+                        this.particles.emit(this.flash.position.x, this.flash.position.y, '💚', 6);
+                        this.sound.playCoin();
+                    }
+                }, CONFIG.CALM_FLASH_DURATION);
+            }
+        }
+    }
+    
+    checkDetection() {
+        this.npcs.forEach(npc => {
+            if (npc.canSeePlayer(this.player, WALMART_MAP)) {
+                npc.alertLevel = Math.min(npc.maxAlert, npc.alertLevel + 3);
+                if (npc.alertLevel >= npc.maxAlert) {
+                    this.onPlayerDetected();
+                }
+            }
+        });
+    }
+    
+    onPlayerDetected() {
+        this.strikes++;
+        this.effects.addScreenShake();
+        this.effects.addRedFlash();
+        this.particles.emit(this.player.position.x, this.player.position.y, '🚨', 8);
+        this.sound.playHit();
+        
+        // Reset player to last safe position (spawn for now)
+        const spawnTile = this.findTileType(TILE_TYPES.PLAYER_SPAWN);
+        this.player.position.x = spawnTile.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2;
+        this.player.position.y = spawnTile.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2;
+        
+        // Reset NPC alert levels
+        this.npcs.forEach(npc => npc.alertLevel = 0);
+    }
+    
     checkGameState() {
-        if (this.hearts <= 0) {
-            this.gameOver('You ran out of hearts!');
-        } else if (this.mudPercent >= 100) {
-            this.gameOver('Flash got stuck in the mud!');
+        if (this.strikes >= CONFIG.MAX_STRIKES) {
+            this.gameOver('Too many detections! Security caught you!');
         } else if (this.timeLeft <= 0) {
             this.gameOver('Time ran out!');
-        } else if (this.horse.saved) {
+        } else if (this.flash.following && this.isAtExit()) {
+            this.objectives.reachExit = true;
             this.victory();
         }
+    }
+    
+    isAtExit() {
+        if (this.player.tileY < 0 || this.player.tileY >= CONFIG.MAP_HEIGHT ||
+            this.player.tileX < 0 || this.player.tileX >= CONFIG.MAP_WIDTH) {
+            return false;
+        }
+        
+        const flashTileX = Math.floor(this.flash.position.x / CONFIG.TILE_SIZE);
+        const flashTileY = Math.floor(this.flash.position.y / CONFIG.TILE_SIZE);
+        
+        if (flashTileY < 0 || flashTileY >= CONFIG.MAP_HEIGHT ||
+            flashTileX < 0 || flashTileX >= CONFIG.MAP_WIDTH) {
+            return false;
+        }
+        
+        const playerTile = WALMART_MAP[this.player.tileY][this.player.tileX];
+        const flashTile = WALMART_MAP[flashTileY][flashTileX];
+        return playerTile === TILE_TYPES.EXIT && flashTile === TILE_TYPES.EXIT;
     }
     
     victory() {
@@ -762,8 +1195,8 @@ class Game {
     }
     
     updateUI() {
-        // Hearts
-        document.getElementById('hearts').textContent = '❤️'.repeat(Math.max(0, this.hearts));
+        // Strikes instead of hearts
+        document.getElementById('hearts').textContent = '🚨'.repeat(Math.max(0, this.strikes)) + '⭕'.repeat(Math.max(0, CONFIG.MAX_STRIKES - this.strikes));
         
         // Score
         document.getElementById('score').textContent = `Score: ${this.score}`;
@@ -773,27 +1206,29 @@ class Game {
         const seconds = Math.floor(this.timeLeft % 60);
         document.getElementById('time').textContent = `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
         
-        // Mud meter
-        const mudPercent = Math.min(100, Math.max(0, this.mudPercent));
-        document.getElementById('mud-fill').style.width = `${mudPercent}%`;
-        document.getElementById('mud-percent').textContent = `${Math.floor(mudPercent)}%`;
+        // Stamina instead of mud
+        const staminaPercent = Math.min(100, Math.max(0, (this.player.stamina / CONFIG.STAMINA_MAX) * 100));
+        document.getElementById('mud-fill').style.width = `${staminaPercent}%`;
+        document.getElementById('mud-percent').textContent = `${Math.floor(staminaPercent)}%`;
         
-        // Lasso cooldown
-        const lassoPercent = Math.max(0, (CONFIG.LASSO_COOLDOWN - this.lassoCooldown) / CONFIG.LASSO_COOLDOWN * 100);
-        document.getElementById('lasso-fill').style.width = `${lassoPercent}%`;
+        // Objectives progress instead of lasso cooldown
+        const completedObjectives = Object.values(this.objectives).filter(Boolean).length;
+        const totalObjectives = Object.keys(this.objectives).length;
+        const objectivePercent = (completedObjectives / totalObjectives) * 100;
+        document.getElementById('lasso-fill').style.width = `${objectivePercent}%`;
         
         // Add pulsing for critical states
-        const mudBar = document.getElementById('mud-bar');
+        const staminaBar = document.getElementById('mud-bar');
         const timeElement = document.getElementById('time');
-        const heartsElement = document.getElementById('hearts');
+        const strikesElement = document.getElementById('hearts');
         
-        if (mudPercent > 75) {
-            mudBar.style.animation = 'pulse 0.5s infinite';
+        if (staminaPercent < 25) {
+            staminaBar.style.animation = 'pulse 0.5s infinite';
         } else {
-            mudBar.style.animation = '';
+            staminaBar.style.animation = '';
         }
         
-        if (this.timeLeft < 30) {
+        if (this.timeLeft < 60) {
             timeElement.style.animation = 'pulse 0.5s infinite';
             timeElement.style.color = '#f66';
         } else {
@@ -801,12 +1236,12 @@ class Game {
             timeElement.style.color = '#0f0';
         }
         
-        if (this.hearts <= 1) {
-            heartsElement.style.animation = 'pulse 0.5s infinite';
-            heartsElement.style.color = '#f66';
+        if (this.strikes >= CONFIG.MAX_STRIKES - 1) {
+            strikesElement.style.animation = 'pulse 0.5s infinite';
+            strikesElement.style.color = '#f66';
         } else {
-            heartsElement.style.animation = '';
-            heartsElement.style.color = '#0f0';
+            strikesElement.style.animation = '';
+            strikesElement.style.color = '#0f0';
         }
     }
     
@@ -818,26 +1253,29 @@ class Game {
         this.ctx.save();
         this.effects.applyScreenShake(this.ctx);
         
-        // Render background
-        this.renderBackground();
-        
-        // Render lasso line
-        if (this.state === GAME_STATES.PLAYING && this.input.getInput().lasso && this.lassoCooldown > CONFIG.LASSO_COOLDOWN - 10) {
-            this.renderLassoLine();
-        }
+        // Render background and map
+        this.renderWalmartMap();
         
         // Render entities
         if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.TITLE) {
+            // Render NPCs first (behind player)
+            this.npcs.forEach(npc => {
+                npc.render(this.ctx, this.gameTime);
+            });
+            
+            // Render items
+            this.items.forEach(item => {
+                item.render(this.ctx, this.gameTime);
+            });
+            
+            // Render Flash
+            this.flash.render(this.ctx, this.gameTime);
+            
+            // Render player on top
             this.player.render(this.ctx, this.gameTime);
-            this.horse.render(this.ctx, this.gameTime);
             
-            this.bandits.forEach(bandit => {
-                bandit.render(this.ctx, this.gameTime);
-            });
-            
-            this.coins.forEach(coin => {
-                coin.render(this.ctx, this.gameTime);
-            });
+            // Render objectives overlay
+            this.renderObjectives();
         }
         
         // Render particles
@@ -849,55 +1287,95 @@ class Game {
         this.ctx.restore();
     }
     
-    renderBackground() {
-        // Sky gradient
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS_HEIGHT);
-        gradient.addColorStop(0, '#1a1a3d');
-        gradient.addColorStop(0.7, '#2a2a5e');
-        gradient.addColorStop(1, '#3a3a7e');
+    renderWalmartMap() {
+        // Render floor background
+        this.ctx.fillStyle = '#f0f0f0';
+        this.ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
         
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT * 0.8);
-        
-        // Ground
-        this.ctx.fillStyle = '#8B4513';
-        this.ctx.fillRect(0, CONFIG.CANVAS_HEIGHT * 0.8, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT * 0.2);
-        
-        // Mud around horse (if not saved)
-        if (!this.horse.saved && this.mudPercent > 0) {
-            const mudAlpha = Math.min(1, this.mudPercent / 100);
-            this.ctx.fillStyle = `rgba(139, 69, 19, ${mudAlpha * 0.7})`;
-            const mudSize = 60 + (this.mudPercent / 100) * 40;
-            this.ctx.fillRect(
-                this.horse.position.x - mudSize/2,
-                this.horse.position.y - mudSize/2,
-                mudSize,
-                mudSize
-            );
+        // Render tiles
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                const tile = WALMART_MAP[y][x];
+                const pixelX = x * CONFIG.TILE_SIZE;
+                const pixelY = y * CONFIG.TILE_SIZE;
+                
+                switch (tile) {
+                    case TILE_TYPES.WALL:
+                        this.ctx.fillStyle = '#666';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        break;
+                    case TILE_TYPES.CLOTHES_RACK:
+                        this.ctx.fillStyle = '#8B4513';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        this.ctx.fillStyle = '#DDA0DD';
+                        this.ctx.fillRect(pixelX + 2, pixelY + 2, CONFIG.TILE_SIZE - 4, CONFIG.TILE_SIZE - 4);
+                        break;
+                    case TILE_TYPES.FITTING_ROOM:
+                        this.ctx.fillStyle = '#FFB6C1';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        break;
+                    case TILE_TYPES.CUSTOMER_SERVICE:
+                        this.ctx.fillStyle = '#87CEEB';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        break;
+                    case TILE_TYPES.STOCKROOM_DOOR:
+                        this.ctx.fillStyle = '#8B4513';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        break;
+                    case TILE_TYPES.EXIT:
+                        this.ctx.fillStyle = '#00FF00';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        break;
+                    case TILE_TYPES.FLASH_PEN:
+                        this.ctx.fillStyle = '#DDD';
+                        this.ctx.fillRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        // Draw gate
+                        this.ctx.strokeStyle = '#888';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeRect(pixelX + 2, pixelY + 2, CONFIG.TILE_SIZE - 4, CONFIG.TILE_SIZE - 4);
+                        break;
+                }
+                
+                // Grid lines for debugging (can be removed)
+                this.ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(pixelX, pixelY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+            }
         }
-        
-        // Horizon line
-        this.ctx.strokeStyle = '#555';
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, CONFIG.CANVAS_HEIGHT * 0.8);
-        this.ctx.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT * 0.8);
-        this.ctx.stroke();
     }
     
-    renderLassoLine() {
-        const distance = this.player.position.distance(this.horse.position);
-        if (distance < CONFIG.LASSO_RANGE) {
-            this.ctx.save();
-            this.ctx.strokeStyle = '#ff0';
-            this.ctx.lineWidth = 3;
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.player.position.x, this.player.position.y);
-            this.ctx.lineTo(this.horse.position.x, this.horse.position.y);
-            this.ctx.stroke();
-            this.ctx.restore();
-        }
+    renderObjectives() {
+        // Show current objectives in corner
+        this.ctx.save();
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(CONFIG.CANVAS_WIDTH - 220, 10, 200, 140);
+        this.ctx.strokeStyle = '#0f0';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(CONFIG.CANVAS_WIDTH - 220, 10, 200, 140);
+        
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = '10px "Press Start 2P", monospace';
+        this.ctx.textAlign = 'left';
+        
+        let yOffset = 30;
+        const objectives = [
+            { key: ITEM_TYPES.HALTER, text: 'Find Halter 🎯' },
+            { key: ITEM_TYPES.LEAD_ROPE, text: 'Find Lead Rope 🪢' },
+            { key: ITEM_TYPES.SADDLE_PAD, text: 'Find Saddle Pad 🛡️' },
+            { key: ITEM_TYPES.GATE_KEY, text: 'Get Gate Key 🗝️' },
+            { key: 'freeFlash', text: 'Free Flash 🐴' },
+            { key: 'reachExit', text: 'Reach Exit 🚪' }
+        ];
+        
+        objectives.forEach(obj => {
+            const completed = this.objectives[obj.key];
+            this.ctx.fillStyle = completed ? '#0f0' : '#fff';
+            const prefix = completed ? '✓' : '○';
+            this.ctx.fillText(`${prefix} ${obj.text}`, CONFIG.CANVAS_WIDTH - 210, yOffset);
+            yOffset += 20;
+        });
+        
+        this.ctx.restore();
     }
     
     start() {
