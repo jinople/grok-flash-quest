@@ -563,6 +563,18 @@ class Flash extends Entity {
             targetY = playerPos.y - normalizedDy * followDistance;
         }
         
+        // If player is in exit zone, position Flash optimally for exit success
+        if (isPlayerInExit) {
+            // Position Flash slightly closer when in exit zone for better success rate
+            const exitFollowDistance = Math.min(followDistance, 8);
+            if (dist > 0) {
+                const normalizedDx = dx / dist;
+                const normalizedDy = dy / dist;
+                targetX = playerPos.x - normalizedDx * exitFollowDistance;
+                targetY = playerPos.y - normalizedDy * exitFollowDistance;
+            }
+        }
+        
         // Start lerp movement
         this.lerpToTarget = true;
         this.lerpStartPos.x = this.position.x;
