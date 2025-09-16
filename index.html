@@ -10,13 +10,70 @@
 <body>
     <div id="game-container">
         <canvas id="game-canvas" width="800" height="600"></canvas>
+        
+        <!-- Enhanced HUD -->
         <div id="ui">
-            <div id="mud-meter">Mud: 25%</div>
-            <div id="time">Time: 45/120s</div>
-            <div id="score">Score: 250</div>
-            <div id="hearts">Hearts: ❤️❤️❤️</div>
+            <div id="hearts">❤️❤️❤️</div>
+            <div id="score">Score: 0</div>
+            <div id="time">Time: 120s</div>
+            <div id="mud-container">
+                <div class="label">Mud:</div>
+                <div id="mud-bar">
+                    <div id="mud-fill"></div>
+                </div>
+                <div id="mud-percent">0%</div>
+            </div>
+            <div id="lasso-cooldown">
+                <div class="label">Lasso:</div>
+                <div id="lasso-bar">
+                    <div id="lasso-fill"></div>
+                </div>
+            </div>
+            <div id="sound-toggle">🔊</div>
         </div>
-        <div id="title-screen">GROK'S FLASH QUEST<br>SAVE FLASH!<br>Press SPACE to Start</div>
+        
+        <!-- Game Screens -->
+        <div id="title-screen" class="screen">
+            <div class="title">GROK'S FLASH QUEST</div>
+            <div class="subtitle">SAVE FLASH THE HORSE!</div>
+            <div class="instructions">
+                🤠 Use WASD/Arrows to move<br>
+                🪢 Press SPACE to lasso (3 hits to save Flash)<br>
+                💰 Collect coins, avoid bandits 🏴‍☠️<br>
+                ⏰ Save Flash before mud reaches 100%!
+            </div>
+            <button id="start-btn" class="game-btn">🎮 START QUEST</button>
+        </div>
+        
+        <div id="victory-screen" class="screen hidden">
+            <div class="title">🎉 QUEST COMPLETE! 🎉</div>
+            <div class="subtitle">Flash is saved!</div>
+            <div id="final-score">Final Score: 0</div>
+            <div id="best-score">Best Score: 0</div>
+            <button id="victory-restart-btn" class="game-btn">🔄 PLAY AGAIN</button>
+        </div>
+        
+        <div id="gameover-screen" class="screen hidden">
+            <div class="title">💀 GAME OVER 💀</div>
+            <div id="game-over-reason">Flash wasn't saved in time...</div>
+            <div id="final-score-go">Final Score: 0</div>
+            <div id="best-score-go">Best Score: 0</div>
+            <button id="gameover-restart-btn" class="game-btn">🔄 TRY AGAIN</button>
+        </div>
+        
+        <!-- Touch Controls (mobile) -->
+        <div id="touch-controls">
+            <div id="dpad">
+                <button class="dpad-btn" id="up-btn">▲</button>
+                <div class="dpad-row">
+                    <button class="dpad-btn" id="left-btn">◀</button>
+                    <div class="dpad-center"></div>
+                    <button class="dpad-btn" id="right-btn">▶</button>
+                </div>
+                <button class="dpad-btn" id="down-btn">▼</button>
+            </div>
+            <button id="lasso-btn" class="action-btn">🪢</button>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
