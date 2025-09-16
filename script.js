@@ -28,7 +28,15 @@ const CONFIG = {
     INVINCIBILITY_FRAMES: 120,
     SCREEN_SHAKE_DURATION: 30,
     PARTICLE_LIFETIME: 60,
-    EMOJI_SIZE: 20
+    EMOJI_SIZE: 20,
+    // Flash follow behavior settings
+    FLASH_FOLLOW_DISTANCE: 12, // target follow distance in pixels
+    FLASH_CATCHUP_DISTANCE: 64, // distance threshold for catch-up behavior
+    FLASH_CATCHUP_CLOSE_DISTANCE: 32, // distance to return to normal speed
+    FLASH_CATCHUP_SPEED_MULTIPLIER: 1.4, // +40% speed boost during catch-up
+    FLASH_WHISTLE_COOLDOWN: 48, // frames (0.8s at 60fps)
+    FLASH_WHISTLE_LERP_DURATION: 15, // frames (~250ms at 60fps for smooth interpolation)
+    FLASH_EXIT_SUCCESS_RADIUS: 20 // pixels - consider Flash "in exit" within this radius
 };
 
 // Game States
@@ -429,24 +437,156 @@ class Flash extends Entity {
         this.calmed = false;
         this.needsCalming = true;
         this.speed = CONFIG.FLASH_SPEED;
+        this.baseSpeed = CONFIG.FLASH_SPEED;
+        this.catchingUp = false;
+        this.whistleCooldownTimer = 0;
+        this.lerpToTarget = false;
+        this.lerpStartPos = new Vector2(x, y);
+        this.lerpTargetPos = new Vector2(x, y);
+        this.lerpTimer = 0;
+        this.lerpDuration = CONFIG.FLASH_WHISTLE_LERP_DURATION;
     }
     
-    update(playerPos) {
+    update(playerPos, gameMap, isPlayerInExit = false) {
+        // Update whistle cooldown
+        if (this.whistleCooldownTimer > 0) {
+            this.whistleCooldownTimer--;
+        }
+        
         if (this.following) {
+            // Handle whistle lerp movement if active
+            if (this.lerpToTarget && this.lerpTimer < this.lerpDuration) {
+                this.lerpTimer++;
+                const t = this.lerpTimer / this.lerpDuration;
+                // Smooth interpolation using easeOut
+                const smoothT = 1 - Math.pow(1 - t, 3);
+                
+                const newX = this.lerpStartPos.x + (this.lerpTargetPos.x - this.lerpStartPos.x) * smoothT;
+                const newY = this.lerpStartPos.y + (this.lerpTargetPos.y - this.lerpStartPos.y) * smoothT;
+                
+                // Basic collision check - don't move into walls
+                if (this.canMoveTo(newX, newY, gameMap)) {
+                    this.position.x = newX;
+                    this.position.y = newY;
+                }
+                
+                if (this.lerpTimer >= this.lerpDuration) {
+                    this.lerpToTarget = false;
+                }
+                return; // Skip normal following during lerp
+            }
+            
             this.followTimer--;
             if (this.followTimer <= 0) {
-                // Move towards player with delay
+                // Calculate distance to player
                 const dx = playerPos.x - this.position.x;
                 const dy = playerPos.y - this.position.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 
-                if (dist > CONFIG.TILE_SIZE * 2) { // Follow if too far
-                    this.position.x += (dx / dist) * this.speed;
-                    this.position.y += (dy / dist) * this.speed;
+                // Determine follow target position (12px behind player)
+                const followDistance = CONFIG.FLASH_FOLLOW_DISTANCE;
+                let targetX = playerPos.x;
+                let targetY = playerPos.y;
+                
+                if (dist > 0) {
+                    // Calculate position behind player
+                    const normalizedDx = dx / dist;
+                    const normalizedDy = dy / dist;
+                    targetX = playerPos.x - normalizedDx * followDistance;
+                    targetY = playerPos.y - normalizedDy * followDistance;
                 }
+                
+                // Check if Flash needs to catch up (distance > 64px)
+                if (dist > CONFIG.FLASH_CATCHUP_DISTANCE) {
+                    this.catchingUp = true;
+                    this.speed = this.baseSpeed * CONFIG.FLASH_CATCHUP_SPEED_MULTIPLIER;
+                } else if (dist < CONFIG.FLASH_CATCHUP_CLOSE_DISTANCE) {
+                    this.catchingUp = false;
+                    this.speed = this.baseSpeed;
+                }
+                
+                // Move towards target position if far enough away
+                if (dist > followDistance) {
+                    const targetDx = targetX - this.position.x;
+                    const targetDy = targetY - this.position.y;
+                    const targetDist = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+                    
+                    if (targetDist > 0) {
+                        const moveX = this.position.x + (targetDx / targetDist) * this.speed;
+                        const moveY = this.position.y + (targetDy / targetDist) * this.speed;
+                        
+                        // Basic collision check
+                        if (this.canMoveTo(moveX, moveY, gameMap)) {
+                            this.position.x = moveX;
+                            this.position.y = moveY;
+                        }
+                    }
+                }
+                
                 this.followTimer = this.followDelay;
             }
         }
+    }
+    
+    // Simple collision check for Flash movement
+    canMoveTo(x, y, gameMap) {
+        const tileX = Math.floor(x / CONFIG.TILE_SIZE);
+        const tileY = Math.floor(y / CONFIG.TILE_SIZE);
+        
+        if (tileX < 0 || tileX >= CONFIG.MAP_WIDTH || tileY < 0 || tileY >= CONFIG.MAP_HEIGHT) {
+            return false;
+        }
+        
+        const tile = gameMap[tileY][tileX];
+        return tile !== TILE_TYPES.WALL && tile !== TILE_TYPES.FITTING_ROOM;
+    }
+    
+    // Whistle/leash assist functionality
+    handleWhistle(playerPos, isPlayerInExit = false) {
+        if (this.whistleCooldownTimer > 0 || !this.following) {
+            return false; // Cooldown active or not following
+        }
+        
+        // Calculate target position for whistle assist (12px behind player)
+        const followDistance = CONFIG.FLASH_FOLLOW_DISTANCE;
+        const dx = playerPos.x - this.position.x;
+        const dy = playerPos.y - this.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        let targetX = playerPos.x;
+        let targetY = playerPos.y;
+        
+        if (dist > 0) {
+            const normalizedDx = dx / dist;
+            const normalizedDy = dy / dist;
+            targetX = playerPos.x - normalizedDx * followDistance;
+            targetY = playerPos.y - normalizedDy * followDistance;
+        }
+        
+        // If player is in exit zone, position Flash optimally for exit success
+        if (isPlayerInExit) {
+            // Position Flash slightly closer when in exit zone for better success rate
+            const exitFollowDistance = Math.min(followDistance, 8);
+            if (dist > 0) {
+                const normalizedDx = dx / dist;
+                const normalizedDy = dy / dist;
+                targetX = playerPos.x - normalizedDx * exitFollowDistance;
+                targetY = playerPos.y - normalizedDy * exitFollowDistance;
+            }
+        }
+        
+        // Start lerp movement
+        this.lerpToTarget = true;
+        this.lerpStartPos.x = this.position.x;
+        this.lerpStartPos.y = this.position.y;
+        this.lerpTargetPos.x = targetX;
+        this.lerpTargetPos.y = targetY;
+        this.lerpTimer = 0;
+        
+        // Set cooldown
+        this.whistleCooldownTimer = CONFIG.FLASH_WHISTLE_COOLDOWN;
+        
+        return true; // Whistle was triggered
     }
     
     free() {
@@ -471,6 +611,29 @@ class Flash extends Entity {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('Press E to calm Flash', this.position.x, this.position.y - 40);
+            ctx.restore();
+        }
+        
+        // Show catch-up indicator when Flash is moving faster
+        if (this.following && this.catchingUp) {
+            ctx.save();
+            ctx.font = '12px "Press Start 2P", monospace';
+            ctx.fillStyle = '#ffff00';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💨', this.position.x + 15, this.position.y - 10);
+            ctx.restore();
+        }
+        
+        // Show whistle cooldown indicator
+        if (this.following && this.whistleCooldownTimer > 0) {
+            const cooldownPercent = this.whistleCooldownTimer / CONFIG.FLASH_WHISTLE_COOLDOWN;
+            ctx.save();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.position.x, this.position.y + 20, 8, 0, Math.PI * 2 * (1 - cooldownPercent));
+            ctx.stroke();
             ctx.restore();
         }
         
@@ -1015,7 +1178,8 @@ class Game {
         this.player.update(input, WALMART_MAP);
         
         // Update Flash
-        this.flash.update(this.player.position);
+        const isPlayerInExit = this.isPlayerInExitZone();
+        this.flash.update(this.player.position, WALMART_MAP, isPlayerInExit);
         
         // Update NPCs
         this.npcs.forEach(npc => {
@@ -1101,6 +1265,15 @@ class Game {
                 }, CONFIG.CALM_FLASH_DURATION);
             }
         }
+        
+        // Check whistle/leash assist for following Flash
+        if (this.flash.following && input.whistle) {
+            const isPlayerInExit = this.isPlayerInExitZone();
+            if (this.flash.handleWhistle(this.player.position, isPlayerInExit)) {
+                this.particles.emit(this.flash.position.x, this.flash.position.y, '💨', 3);
+                this.sound.playBlip(); // Add audio feedback for whistle
+            }
+        }
     }
     
     checkDetection() {
@@ -1141,23 +1314,47 @@ class Game {
         }
     }
     
-    isAtExit() {
+    isPlayerInExitZone() {
         if (this.player.tileY < 0 || this.player.tileY >= CONFIG.MAP_HEIGHT ||
             this.player.tileX < 0 || this.player.tileX >= CONFIG.MAP_WIDTH) {
             return false;
         }
         
-        const flashTileX = Math.floor(this.flash.position.x / CONFIG.TILE_SIZE);
-        const flashTileY = Math.floor(this.flash.position.y / CONFIG.TILE_SIZE);
-        
-        if (flashTileY < 0 || flashTileY >= CONFIG.MAP_HEIGHT ||
-            flashTileX < 0 || flashTileX >= CONFIG.MAP_WIDTH) {
+        const playerTile = WALMART_MAP[this.player.tileY][this.player.tileX];
+        return playerTile === TILE_TYPES.EXIT;
+    }
+    
+    isAtExit() {
+        // Player must be in exit zone
+        if (!this.isPlayerInExitZone()) {
             return false;
         }
         
-        const playerTile = WALMART_MAP[this.player.tileY][this.player.tileX];
-        const flashTile = WALMART_MAP[flashTileY][flashTileX];
-        return playerTile === TILE_TYPES.EXIT && flashTile === TILE_TYPES.EXIT;
+        // Find the exit zone center for distance calculation
+        const exitTiles = [];
+        for (let y = 0; y < CONFIG.MAP_HEIGHT; y++) {
+            for (let x = 0; x < CONFIG.MAP_WIDTH; x++) {
+                if (WALMART_MAP[y][x] === TILE_TYPES.EXIT) {
+                    exitTiles.push({x, y});
+                }
+            }
+        }
+        
+        if (exitTiles.length === 0) return false;
+        
+        // Calculate exit center
+        const exitCenterX = exitTiles.reduce((sum, tile) => sum + tile.x, 0) / exitTiles.length;
+        const exitCenterY = exitTiles.reduce((sum, tile) => sum + tile.y, 0) / exitTiles.length;
+        const exitCenterPixelX = exitCenterX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+        const exitCenterPixelY = exitCenterY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+        
+        // Check if Flash is within success radius of exit center
+        const flashDistToExit = Math.sqrt(
+            Math.pow(this.flash.position.x - exitCenterPixelX, 2) + 
+            Math.pow(this.flash.position.y - exitCenterPixelY, 2)
+        );
+        
+        return flashDistToExit <= CONFIG.FLASH_EXIT_SUCCESS_RADIUS;
     }
     
     victory() {
